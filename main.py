@@ -16,6 +16,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import quotequail
 
+''' Libraries used for simulating the game '''
+from PyCatan.catan_game import CatanGame
+from PyCatan.catan_cards import CatanCards
+from PyCatan.catan_board import CatanBoard
+
 ''' Sets up the main game '''
 def main(admin_email):
 	
@@ -87,22 +92,27 @@ def main(admin_email):
 			if is_setting_up:
 				
 				# splits the body by spaces
-				orders = e['body'].split(" ")
+				orders = e[0]['body'].split("\n")
 				for o in orders:
+					print(o)
 					if o == "NEW_GAME":
 						game = CatanGame(num_of_players=len(emails))
 						
 					if " " in o:
+						print("Space detected")
 						parts = o.split(" ")
 						
-						if part[0] = "ADD_PLAYER":
-							name = part[1]
-							email = part[2]
+						if parts[0] == "ADD_PLAYER":
+							print("Adding player")
+							name = parts[1]
+							email = parts[2]
 							
 							emails.append({
 								"name": name,
 								"email": email
 							})
+							
+				print(emails)
 							
 		
 	server.quit()
