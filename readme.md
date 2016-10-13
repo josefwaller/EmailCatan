@@ -11,6 +11,6 @@ Currently under developement
 
 ###Setup
 1. Clone [PyCatan](https://github.com/josefwaller/PyCatan) into `EmailCatan/PyCatan'
-2. Change the contents of `EmailCatan/login.json' to the login of the bot account
+2. Change the contents of `EmailCatan/login.json' (Create it if it does not exist) to the login of the bot account
 	a) I recomend creating a new gmail account for the bot
 3. Run `main.py` and emter your email address. The bot will email you.
