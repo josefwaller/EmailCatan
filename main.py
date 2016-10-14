@@ -16,6 +16,13 @@ from PyCatan.catan_board import CatanBoard
 ''' see email_manager.py '''
 from email_manager import EmailManager
 
+# gets some templates for emails from external files
+help_email = open("email_templates/help.txt", "r").read()
+invite_email = open("email_templates/invite.txt", "r").read()
+start_email = open("email_templates/started.txt", "r").read()
+start_first_player_email = open("email_templates/started_first_player.txt", "r").read()
+error_email = open("email_templates/error.txt", "r").read()
+
 ''' Sets up the main game '''
 def main():
 	
@@ -34,71 +41,55 @@ def main():
 	# attemps to connect to server
 	manager = EmailManager(email, password)
 		
-	# try:
-
-		# manager.send_email(
-		# 	admin_email,
-		# 	'Setting up your Email Catan Game',
-		# 	"""
-		# 	Welcome to setting up your EmailCatan game. Please read the instructions and don't mess up.
-			
-		# 	Add players by replying 'ADD_PLAYER <their name> <theiremail@gmail.com>'
-		# 	Make a player a moderator by adding 'MOD' when adding them
-		# 	Start a new game with 'NEW_GAME'
-		# 	Load a game with 'LOAD_GAME <id>'
-			
-		# 	Make sure to start the game only after you've added everybody (including yourself)
-			
-		# 	Example:
-			
-		# 	ADD_PLAYER Me myself@gmail.com MOD
-		# 	ADD_PLAYER Bob myfriend@gmail.com
-		# 	ADD_PLAYER Jake myenemy@gmail.com
-		# 	ADD_PLAYER Lucy myotherfriend@gmail.com
-		# 	NEW_GAME
-
-		# 	""")
-
-	# except Exception as e:
-	# 	print(e)
-	# 	print("Error sending mail: There was an error while sending the mail. " +
-	# 	"I don't really know why this would happen. Sorry :(")
-	# 	return
-		
 	games = []
 	emails = []
+	
 	CONFIRMING = 0
+	BUILDING_PHASE = 1
+	PLAYING = 2
 		
 	while True:
+	
 		e = manager.get_emails()
 		if e != []:
+		
+			print("Received an email from {}".format(e[0]['from']))
+
+			# checks if the user needs help with orders first
+			if e[0]['body'].replace("\n", "") == "HELP":
+				manager.send_email(
+					to=e[0]['from'],
+					subject="Help with EmailCatan",
+					contents=help_email
+				)
 
 			this_game = None
 			this_player = None
 
 			for i in range(len(games)):
 				for x in range(len(games[i]['players'])):
-					print(games[i]['players'][x]['email'])
 					if games[i]['players'][x]['email'] == e[0]['from']:
 						
 						this_game = i
 						this_player = x
-						print("ASDF")
 
 			players = []
 
-			# splits the body by spaces
+			# splits the body by newlines
 			orders = e[0]['body'].split("\n")
 			for o in orders:
-				print(o)
 
 				# creates a new game
 				if this_game == None:
 					
 					if o == "NEW_GAME":
+					
+						print("Creating a new game")
+					
 						games.append({
 							"game": CatanGame(num_of_players=len(players)),
 							"state": CONFIRMING,
+							"turn": 0,
 							"players": players
 						})
 
@@ -114,20 +105,7 @@ def main():
 							manager.send_email(
 								to=players[i]['email'],
 								subject='You\'ve been invited to play The Settlers of Catan',
-								contents="""
-								
-									{name}, you have been invited to player The Settlers of Catan through email.
-									You will be playing with {player_names}
-
-									To accept, reply 'YES'
-									To decline, reply 'NO'
-									Otherwise you will confuse me.
-
-									Thanks,
-									Catan Bot
-
-								""".format(name=players[i]['name'], player_names=",".join(player_names)))
-						print(games)
+								contents=invite_email.format(name=players[i]['name'], player_names=", ".join(player_names)))
 						
 					if " " in o:
 						parts = o.split(" ")
@@ -139,12 +117,13 @@ def main():
 								"email": parts[2],
 								"confirmed": False
 							})
+							
+							print("Added player {name}, <{email}>".format(name=parts[1], email=parts[2]))
 
 				# if the game already exists
 				else:
 
-					print("Exostomg game")
-
+					print("Received email from an existing game")
 					# checks which stage it is in
 					if game[this_game]['stage'] == CONFIRMING:
 
@@ -164,18 +143,115 @@ def main():
 									break
 
 							if all_confirmed:
+							
+								print("All players have agreed to play")
+								
+								game[this_game]['state'] = BUILDING_PHASE
+							
 								# sends mail to all the players
-								for p in game[this_game]['players']:
+								for i in range(1, len(game[this_game]['players'])):
+									
+									p = game[this_game]['players'][i]
+									
 									manager.send_email(
 										to=p['email'],
 										subject='The Game of Catan has started',
+										contents=start_email.format(game[this_game]['players'][0]['name'])
+								)
+								
+								# sends the email to the first player
+								p = game[this_game]['players'][0]
+								manager.send_email(
+									to=p['email'],
+									subject='It is your turn to play',
+									contents=start_first_player_email
+								)
+								
+								
+					elif games[this_game]['state'] == BUILDING_PHASE:
+					
+						if " " in o:
+							p = o.split(" ")
+							
+							if p[0] == "BUILD_SETTLEMENT":
+								
+								# gets the coords for the first point
+								settle_coords = p[1].split(",")
+								
+								# gets the coords for the second point
+								road_coords = p[3].split(",")
+								
+								# checks they are connected
+								points = games[this_game]['game'].board.get_connected_points(
+									settle_coords[0], 
+									settle_coords[1])
+									
+								valid_point = False
+								for p in points:
+									if road_coords == p or road_coords == p.reverse():
+										valid_point = True
+										break
+										
+								if not valid_point:
+									manager.send_mail(
+										to=e['from'],
+										subject="Invalid road placement",
+										contents=error_email.format(errors="- Invalid Road placement")
+									)
+								else:
+									
+									# adds the settlement
+									games[this_game]['game'].add_settlement(
+										player=this_player,
+										r=settle_coords[0],
+										i=settle_coords[1],
+										is_starting=True
+										
+									)
+									
+									# adds the road
+									# games[this_game]['game'].add_road(
+									# 	player=this_player,
+									# 	from=settle_coords,
+									# 	to=road_coords,
+									# 	is_starting=True
+									# )
+									
+									# sends the next player the prompt
+									g = games[this_game]
+									g['turn'] = (g['turn'] + 1) % len(g['players'])
+									
+									manager.send_mail(
+										to=g['players'][g['turn']]['email'],
+										subject="It is your turn to build your first settlements",
 										contents=
 """
-Everyone hase agreed to play and the game has begun.
-It is {}'s turn first.
-""".format(game[this_game]['players'][0]['name'])
-								)
-
+	It is now your turn to build your starting settlements.
+	Ther will be other stuff here to, but its not added yet.
+""")
+					
+					elif games[this_game]['state'] == PLAYING:
+						
+						if " " in o:
+							p = o.split(" ")
+							
+							if p[0] == "BUILD":
+							
+								if p[1] == "SETTLEMENT":
+								
+									# the coords will be in p[3] as x,x
+									
+									coords = p[3].split(',')
+									
+									for c in coords:
+										c = int(c)
+										
+									games[this_game]['game'].add_settlement(
+										player=this_player,
+										r = coords[0],
+										i = coords[1]
+									)
+								
 				
 	manager.server.quit()		
 	

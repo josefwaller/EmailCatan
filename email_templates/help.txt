@@ -1,0 +1,59 @@
+Here are the valid moves in EmailCatan:
+	
+SETTING UP A GAME
+---------------------
+
+'ADD_PLAYER <name> <email>'
+-> Adds a new player to the game with the given name and email
+ex: ADD_PLAYER DarthVader darthvader@empire.ca
+
+'ADD_PLAYER <name> <email> MOD'
+-> Adds a new player with mod abilities. They will have many powers (like giving people resources for free) in case I mess up somehow
+ex: ADD_PLAYER LukeSkyWalker skywalker.luke@rebels.com
+
+'NEW_GAME'
+-> Creates a new gam with all the players added so far. Any orders below this will be ignored
+ex: NEW_GAME
+
+Example Setting up a game
+
+ADD_PLAYER Han soloh@smuggler.org MOD
+ADD_PLAYER Chewie aaaarg@arrrgs.arg
+ADD_PLAYER BobaFett business@fett.ca
+
+BUILDING PHASE
+---------------------
+
+BUILD_SETTLEMENT <row>,<index> ROAD <row>,<index>
+-> Builds a settlement on the first point, and then adds a road going to the second point
+-> Should only be used in the building phase
+ex BUILD_SETTLEMENT 2,2 ROAD 2,3
+
+PLAYING
+---------------------
+
+'BUILD SETTLEMENT ON <row>,<index>'
+-> Builds a settlement on the row/index specified
+ex: BUILD SETTLEMENT ON 4,2
+
+'BUILD ROAD FROM <row>,<index> TO <row>,<index>
+-> Builds a road from the first given point to the second
+ex: BUILD ROAD FROM 2,3 TO 2,4
+
+'BUILD CITY ON <row>,<index>
+-> Upgrades a settlement on the point given to a city to a city 
+ex: BUILD CITY ON 4,2
+
+'BUILD DEV_CARD'
+-> Builds a dev card and adds it to your hand
+ex: BUILD DEV_CARD
+
+'TRADE <amount> <resource> FOR <amount> <resource>'
+-> Offers all the other players to trade
+ex: TRADE 5 WHEAT FOR 3 SHEEP
+-> In this example, you would be giving up 5 wheat and would gain 3 sheep
+
+'TRADE TO_BANK <resource> <resouce>
+-> Trades 4 resources into the bank (or less if you are connected to a harbor) for one of the other resources
+ex: TRADE TO_BACK BRICK WHEAT
+-> In this example you would trade 4 brick for 1 wheat

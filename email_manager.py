@@ -23,6 +23,8 @@ class EmailManager:
 
 	def send_email(self, to, subject, contents):
 
+		print("Sending email to {email}".format(email=to))
+	
 		# creates a new email
 		msg = MIMEMultipart()
 		msg['From'] = 'Catan Bot <{}>'.format(self.email)

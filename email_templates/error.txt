@@ -1,0 +1,3 @@
+Your move was invalid for the following reasons:
+{errors}
+Please try again.

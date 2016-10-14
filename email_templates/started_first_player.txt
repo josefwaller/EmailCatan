@@ -1,0 +1,3 @@
+Everyone has agreed to play first and the game has begun.
+It is your turn first. Please enter a move.
+Reply 'HELP' for a list of possible moves

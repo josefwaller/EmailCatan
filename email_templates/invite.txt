@@ -1,0 +1,9 @@
+{name}, you have been invited to player The Settlers of Catan through email.
+You will be playing with {player_names}
+
+To accept, reply 'YES'
+To decline, reply 'NO'
+Otherwise you will confuse me.
+
+Thanks,
+Catan Bot
