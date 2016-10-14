@@ -6,26 +6,20 @@ Purpose: Allows a game of Catan to be played entirely through emails between pla
 '''
 
 import json
-from bs4 import BeautifulSoup
 
-''' libraries used for sending/receiving emails '''
-import smtplib
-import poplib
-from email import parser
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-import quotequail
 
 ''' Libraries used for simulating the game '''
 from PyCatan.catan_game import CatanGame
 from PyCatan.catan_cards import CatanCards
 from PyCatan.catan_board import CatanBoard
 
+''' see email_manager.py '''
+from email_manager import EmailManager
+
 ''' Sets up the main game '''
-def main(admin_email):
+def main():
 	
-	email = ""
-	password = ""
+
 	# reads the contents of the login file
 	try:
 		file = open("login.json", "r")
@@ -38,144 +32,155 @@ def main(admin_email):
 		return
 	
 	# attemps to connect to server
-	try:
-		server = smtplib.SMTP('smtp.gmail.com', 587)
-		server.starttls()
-		server.login(email, password)
-	except:
-		print("Error login in: Please check that the credentials in 'login.json' are valid")
-		return
+	manager = EmailManager(email, password)
 		
-	try:
-		# creates a new email
-		msg = MIMEMultipart()
-		msg['From'] = 'Catan Bot <{}>'.format(email)
-		msg['To'] = admin_email
-		msg['Subject'] = 'Setting up your Email Catan Game!'
+	# try:
+
+		# manager.send_email(
+		# 	admin_email,
+		# 	'Setting up your Email Catan Game',
+		# 	"""
+		# 	Welcome to setting up your EmailCatan game. Please read the instructions and don't mess up.
+			
+		# 	Add players by replying 'ADD_PLAYER <their name> <theiremail@gmail.com>'
+		# 	Make a player a moderator by adding 'MOD' when adding them
+		# 	Start a new game with 'NEW_GAME'
+		# 	Load a game with 'LOAD_GAME <id>'
+			
+		# 	Make sure to start the game only after you've added everybody (including yourself)
+			
+		# 	Example:
+			
+		# 	ADD_PLAYER Me myself@gmail.com MOD
+		# 	ADD_PLAYER Bob myfriend@gmail.com
+		# 	ADD_PLAYER Jake myenemy@gmail.com
+		# 	ADD_PLAYER Lucy myotherfriend@gmail.com
+		# 	NEW_GAME
+
+		# 	""")
+
+	# except Exception as e:
+	# 	print(e)
+	# 	print("Error sending mail: There was an error while sending the mail. " +
+	# 	"I don't really know why this would happen. Sorry :(")
+	# 	return
 		
-		# creates new text
-		body = MIMEText("""
-		Welcome to setting up your EmailCatan game. Please read the instructions and don't mess up.
-		
-		Add players by replying 'ADD_PLAYER <their name> <theiremail@gmail.com>'
-		Make a player a moderator by adding 'MOD' when adding them
-		Start a new game with 'NEW_GAME'
-		Load a game with 'LOAD_GAME <id>'
-		
-		Make sure to start the game only after you've added everybody (including yourself)
-		
-		Example:
-		
-		ADD_PLAYER Me myself@gmail.com MOD
-		ADD_PLAYER Bob myfriend@gmail.com
-		ADD_PLAYER Jake myenemy@gmail.com
-		ADD_PLAYER Lucy myotherfriend@gmail.com
-		NEW_GAME
-		
-		""", "plain")
-		
-		msg.attach(body)
-		
-		server.sendmail(email, admin_email, msg.as_string())
-	except:
-		print("Error sending mail: There was an error while sending the mail. " +
-		"I don't really know why this would happen. Sporry :(")
-		return
-		
-	game = None
+	games = []
 	emails = []
-	is_setting_up = True
+	CONFIRMING = 0
 		
 	while True:
-		e = get_new_emails(email, password)
+		e = manager.get_emails()
 		if e != []:
-			if is_setting_up:
-				
-				# splits the body by spaces
-				orders = e[0]['body'].split("\n")
-				for o in orders:
-					print(o)
+
+			this_game = None
+			this_player = None
+
+			for i in range(len(games)):
+				for x in range(len(games[i]['players'])):
+					print(games[i]['players'][x]['email'])
+					if games[i]['players'][x]['email'] == e[0]['from']:
+						
+						this_game = i
+						this_player = x
+						print("ASDF")
+
+			players = []
+
+			# splits the body by spaces
+			orders = e[0]['body'].split("\n")
+			for o in orders:
+				print(o)
+
+				# creates a new game
+				if this_game == None:
+					
 					if o == "NEW_GAME":
-						game = CatanGame(num_of_players=len(emails))
+						games.append({
+							"game": CatanGame(num_of_players=len(players)),
+							"state": CONFIRMING,
+							"players": players
+						})
+
+						# sends an email to each player
+						for i in range(len(players)):
+
+							player_names = []
+
+							for x in range(len(players)):
+								if x != i:
+									player_names.append(players[x]['name'])
+
+							manager.send_email(
+								to=players[i]['email'],
+								subject='You\'ve been invited to play The Settlers of Catan',
+								contents="""
+								
+									{name}, you have been invited to player The Settlers of Catan through email.
+									You will be playing with {player_names}
+
+									To accept, reply 'YES'
+									To decline, reply 'NO'
+									Otherwise you will confuse me.
+
+									Thanks,
+									Catan Bot
+
+								""".format(name=players[i]['name'], player_names=",".join(player_names)))
+						print(games)
 						
 					if " " in o:
-						print("Space detected")
 						parts = o.split(" ")
 						
 						if parts[0] == "ADD_PLAYER":
-							print("Adding player")
-							name = parts[1]
-							email = parts[2]
 							
-							emails.append({
-								"name": name,
-								"email": email
+							players.append({
+								"name": parts[1],
+								"email": parts[2],
+								"confirmed": False
 							})
-							
-				print(emails)
-							
-		
-	server.quit()
-	
-''' Gets all the emails from the server and returns them as an array of dictionaries
-	Ex:
-		[
-			{
-				"from": "some_email"
-				"subject": "some_subject"
-				"body": "some_body"
-			}
-		]
-'''
-def get_new_emails(email, password):
-		
-	# connects the gmail
-	pop_conn = poplib.POP3_SSL('pop.gmail.com')
-	pop_conn.user(email)
-	pop_conn.pass_(password)
 
-	# Get messages from server:
-	messages = [pop_conn.retr(i) for i in range(1, len(pop_conn.list()[1]) + 1)]
-				
-	# decodes them
-	messages = ["\n".join(m.decode("utf-8") for m in mssg[1]) for mssg in messages]
-	
-	to_return = []
-	
-	# Parse message intom an email object:
-	messages = [parser.Parser().parsestr(mssg) for mssg in messages]
-	
-	for message in messages:
-		
-		# gets the body for each message
-		body = ""
-		
-		for part in message.walk():
-			
-			if part.get_content_type() == "text/plain":
-				body = part.get_payload()
-				break
-		
-		# removes previous messages, if any
-		new_body = quotequail.unwrap(body)
-		
-		if new_body != None:
-			body = new_body['text_top']
-					
+				# if the game already exists
+				else:
 
-		to_return.append({
-			"from": message['From'],
-			"subject": message['Subject'],
-			"body": body
-		})		
+					print("Exostomg game")
+
+					# checks which stage it is in
+					if game[this_game]['stage'] == CONFIRMING:
+
+						# checks if the playe agreed to playe
+						if e['body'] == 'YES':
+							
+							# marks them as ready to playe
+							game[this_game]['players'][this_player]['confirmed'] = True
+
+							# checks if everyone has confirmed
+							all_confirmed = False
+
+							for p in game[this_game]['players']:
+								if not p['confirmed']:
+
+									all_confirmed = True
+									break
+
+							if all_confirmed:
+								# sends mail to all the players
+								for p in game[this_game]['players']:
+									manager.send_email(
+										to=p['email'],
+										subject='The Game of Catan has started',
+										contents=
+"""
+Everyone hase agreed to play and the game has begun.
+It is {}'s turn first.
+""".format(game[this_game]['players'][0]['name'])
+								)
+
 				
-	# closes the server
-	pop_conn.quit()
+	manager.server.quit()		
 	
-	# returns the messages
-	return to_return;
 	
 if __name__ == "__main__":
-	email = input("Please enter your email: ")
-	print("You will be emailed about setting up a game")
-	main(email)
+	# email = input("Please enter your email: ")
+	# print("You will be emailed about setting up a game")
+	main()
