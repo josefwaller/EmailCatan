@@ -7,6 +7,8 @@ Purpose: Allows a game of Catan to be played entirely through emails between pla
 
 import json
 
+import poplib
+
 
 ''' Libraries used for simulating the game '''
 from PyCatan.catan_game import CatanGame
@@ -41,7 +43,25 @@ def main():
 	# attemps to connect to server
 	manager = EmailManager(email, password)
 		
-	games = []
+	games = [
+		# {
+		# 	"game": CatanGame(),
+		# 	"state": 0,
+		# 	"turn": 0,
+		# 	"players": [
+		# 		{
+		# 			"name": "Josef",
+		# 			"email": "josef@siriusapplcations.com",
+		# 			"confirmed": False
+		# 		},
+		# 		{
+		# 			"name": "Isaac",
+		# 			"email": "isaacwaller.com@gmail.com",
+		# 			"confirmed": False
+		# 		}
+		# 	]
+		# }
+	]
 	emails = []
 	
 	CONFIRMING = 0
@@ -50,25 +70,22 @@ def main():
 		
 	while True:
 	
-		e = manager.get_emails()
-		if e != []:
-		
-			print("Received an email from {}".format(e[0]['from']))
+		try:
+			emails = manager.get_emails()
+		except poplib.error_proto:
+			pass
 
-			# checks if the user needs help with orders first
-			if e[0]['body'].replace("\n", "") == "HELP":
-				manager.send_email(
-					to=e[0]['from'],
-					subject="Help with EmailCatan",
-					contents=help_email
-				)
+		for e in emails:
+		
+			print("Received an email from {}".format(e['from']))
+
 
 			this_game = None
 			this_player = None
 
 			for i in range(len(games)):
 				for x in range(len(games[i]['players'])):
-					if games[i]['players'][x]['email'] == e[0]['from']:
+					if games[i]['players'][x]['email'] == e['from']:
 						
 						this_game = i
 						this_player = x
@@ -76,13 +93,21 @@ def main():
 			players = []
 
 			# splits the body by newlines
-			orders = e[0]['body'].split("\n")
+			orders = e['body'].split("\n")
 			for o in orders:
+
+				# checks if the user needs help with orders first
+				if o.replace(" ", "") == "HELP":
+					manager.send_email(
+						to=e['from'],
+						subject="Help with EmailCatan",
+						contents=help_email
+					)
 
 				# creates a new game
 				if this_game == None:
 					
-					if o == "NEW_GAME":
+					if o.lower() == "new_game":
 					
 						print("Creating a new game")
 					
@@ -110,7 +135,7 @@ def main():
 					if " " in o:
 						parts = o.split(" ")
 						
-						if parts[0] == "ADD_PLAYER":
+						if parts[0].lower() == "add_player":
 							
 							players.append({
 								"name": parts[1],
@@ -124,19 +149,20 @@ def main():
 				else:
 
 					print("Received email from an existing game")
-					# checks which stage it is in
-					if game[this_game]['stage'] == CONFIRMING:
+					
+					# checks which state it is in
+					if games[this_game]['state'] == CONFIRMING:
 
 						# checks if the playe agreed to playe
-						if e['body'] == 'YES':
+						if e['body'].lower() == 'yes':
 							
 							# marks them as ready to playe
-							game[this_game]['players'][this_player]['confirmed'] = True
+							games[this_game]['players'][this_player]['confirmed'] = True
 
 							# checks if everyone has confirmed
 							all_confirmed = False
 
-							for p in game[this_game]['players']:
+							for p in games[this_game]['players']:
 								if not p['confirmed']:
 
 									all_confirmed = True
@@ -146,21 +172,21 @@ def main():
 							
 								print("All players have agreed to play")
 								
-								game[this_game]['state'] = BUILDING_PHASE
+								games[this_game]['state'] = BUILDING_PHASE
 							
 								# sends mail to all the players
-								for i in range(1, len(game[this_game]['players'])):
+								for i in range(1, len(games[this_game]['players'])):
 									
-									p = game[this_game]['players'][i]
+									p = games[this_game]['players'][i]
 									
 									manager.send_email(
 										to=p['email'],
 										subject='The Game of Catan has started',
-										contents=start_email.format(game[this_game]['players'][0]['name'])
+										contents=start_email.format(games[this_game]['players'][0]['name'])
 								)
 								
 								# sends the email to the first player
-								p = game[this_game]['players'][0]
+								p = games[this_game]['players'][0]
 								manager.send_email(
 									to=p['email'],
 									subject='It is your turn to play',

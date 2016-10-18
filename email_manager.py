@@ -53,7 +53,7 @@ class EmailManager:
 	def get_emails(self):
 	
 		# connects to gmail
-		pop_conn = poplib.POP3_SSL('pop.gmail.com')
+		pop_conn = poplib.POP3_SSL('pop.gmail.com', '995')
 		pop_conn.user(self.email)
 		pop_conn.pass_(self.password)
 
@@ -85,9 +85,11 @@ class EmailManager:
 			if new_body != None:
 				body = new_body['text_top']
 						
+			# for m in message:
+			# 	print("{}: {}".format(m, message[m]))
 
 			to_return.append({
-				"from": message['From'],
+				"from": message['Return-Path'].replace("<", "").replace(">", ""),
 				"subject": message['Subject'],
 				"body": body
 			})
