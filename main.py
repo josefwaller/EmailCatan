@@ -44,23 +44,18 @@ def main():
 	manager = EmailManager(email, password)
 		
 	games = [
-		# {
-		# 	"game": CatanGame(),
-		# 	"state": 0,
-		# 	"turn": 0,
-		# 	"players": [
-		# 		{
-		# 			"name": "Josef",
-		# 			"email": "josef@siriusapplcations.com",
-		# 			"confirmed": False
-		# 		},
-		# 		{
-		# 			"name": "Isaac",
-		# 			"email": "isaacwaller.com@gmail.com",
-		# 			"confirmed": False
-		# 		}
-		# 	]
-		# }
+		{
+			"game": CatanGame(),
+			"state": 1,
+			"turn": 0,
+			"players": [
+				{
+					"name": "Josef",
+					"email": "josef@siriusapplications.com",
+					"confirmed": False
+				}
+			]
+		}
 	]
 	emails = []
 	
@@ -85,6 +80,9 @@ def main():
 
 			for i in range(len(games)):
 				for x in range(len(games[i]['players'])):
+					
+					print("Comparing {} and {}".format(games[i]['players'][x]['email'], e['from']))
+				
 					if games[i]['players'][x]['email'] == e['from']:
 						
 						this_game = i
@@ -195,17 +193,18 @@ def main():
 								
 								
 					elif games[this_game]['state'] == BUILDING_PHASE:
-					
+						
+						print("Game is in the building phase")
 						if " " in o:
 							p = o.split(" ")
 							
 							if p[0] == "BUILD_SETTLEMENT":
 								
 								# gets the coords for the first point
-								settle_coords = p[1].split(",")
+								settle_coords = [int(x) for x in p[1].split(",")]
 								
 								# gets the coords for the second point
-								road_coords = p[3].split(",")
+								road_coords = [int(x) for x in p[3].split(",")]
 								
 								# checks they are connected
 								points = games[this_game]['game'].board.get_connected_points(
@@ -219,7 +218,7 @@ def main():
 										break
 										
 								if not valid_point:
-									manager.send_mail(
+									manager.send_email(
 										to=e['from'],
 										subject="Invalid road placement",
 										contents=error_email.format(errors="- Invalid Road placement")
@@ -236,18 +235,18 @@ def main():
 									)
 									
 									# adds the road
-									# games[this_game]['game'].add_road(
-									# 	player=this_player,
-									# 	from=settle_coords,
-									# 	to=road_coords,
-									# 	is_starting=True
-									# )
+									games[this_game]['game'].add_road(
+										player=this_player,
+										start=settle_coords,
+										end=road_coords,
+										is_starting=True
+									)
 									
 									# sends the next player the prompt
 									g = games[this_game]
 									g['turn'] = (g['turn'] + 1) % len(g['players'])
 									
-									manager.send_mail(
+									manager.send_email(
 										to=g['players'][g['turn']]['email'],
 										subject="It is your turn to build your first settlements",
 										contents=
