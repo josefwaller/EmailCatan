@@ -1,6 +1,6 @@
 from PIL import Image, ImageDraw, ImageFont
 import math
-from PyCatan import CatanBoard
+from PyCatan import CatanBoard, CatanBuilding
 from random import randint
 
 class BoardRenderer:
@@ -42,70 +42,13 @@ class BoardRenderer:
 		colors[CatanBoard.HEX_FIELDS] = (234, 234, 0)
 		colors[CatanBoard.HEX_DESERT] = (255, 255, 178)
 		
-		hexes_per_row = [
-			3,
-			4,
-			5,
-			4,
-			3
-		]
-		rad = size[0] / 10
-		
-		# this is half the width of a hex
-		half_width = math.sqrt(math.pow(rad, 2) - math.pow(rad * math.sin(math.pi / 6), 2))
-		
-		# this is the length of a line on the hex
-		line_length = 2 * rad * math.sin(math.pi / 6)
-		
-		x_off = 0
-		
-		start = (
-			size[0] / 2 - 1 * half_width, 
-			size[1] / 2 - 2 * rad - line_length
-		)
-		
 		# draws the board
 		# for i in range(len(hexes_per_row)):
 		for r in range(len(board.hexes)):
-			
-			# moves the next row of hexes over left or right to be aligned
-			if r < 3:
-				x_off -= half_width
-				
-			else:
-				x_off += half_width
-				
+		
+
 			for i in range(len(board.hexes[r])):
-				
-				x = i * 2 * half_width
-				
-				y = r * (rad + rad * math.sin(math.pi / 6))
-		
-				num = ""
-				if board.hex_nums[r][i] != None:
-					num = "{}".format(board.hex_nums[r][i])
-	
-				text_size = font.getsize(num)
-		
-				# draws the hex
-				self.draw_hex(
-					draw, 
-					center=(start[0] + x_off + x, start[1] + y), 
-					radius=rad, 
-					color=colors[board.hexes[r][i]]
-				)
-				
-				# draws the number token
-				self.draw_bordered_text(
-					num, 
-					(
-						start[0] + x_off + x - text_size[0] / 2,
-						start[1] + y - text_size[1] / 2
-					),
-					3,
-					font,
-					draw
-				)
+				self.draw_hex(draw, font, r, i, board.hex_nums[r][i], board, colors[board.hexes[r][i]])
 				
 		# the different colors for each player
 		player_colors = [
@@ -116,44 +59,33 @@ class BoardRenderer:
 			(43, 155, 75) #green
 		]
 		
-		
-		starting_coords = [
-			# starts at the center of the board, then moves 1.5 hexes over
-			size[0] / 2 - 3 * half_width,
-			
-			# starts at the center and moves 1.5 hexes up
-			size[1] / 2 - 1.5 * line_length - 2 * rad
-		]
-		
 		# draws the settlements/cities
 		for r in range(len(board.points)):
 			for i in range(len(board.points[r])):
 			
 				if board.points[r][i] != None:
 					
+					# gets the color
 					color = player_colors[board.points[r][i].owner]
-					
-					# moves each point over a bit
-					if r < 3:
-						x_off = i * half_width - r * half_width
-					
-					else:
-						x_off = i * half_width - (5 - r) * half_width
-					
-					y_off = r * (line_length + 2 * rad - 1.5 * line_length)
-					
-					if r < 3:
-						if i % 2 == 1:
-							y_off -= 2 * rad - 1.5 * line_length
-					
-					else:
-						if i % 2 == 0:
-							y_off -= 2 * rad - 1.5 * line_length
-										
-					draw.ellipse(
+
+					# gets the coords
+					coords = self.get_point_coords(r, i)
+
+					radius = 10
+					if board.points[r][i].type == CatanBuilding.BUILDING_CITY:
+						radius = 15
+
+					# draws
+					draw.rectangle(
 						[
-							(starting_coords[0] - 10 + x_off - 5, starting_coords[1] - 10 + y_off - 5),
-							(starting_coords[0] + 20 + x_off, starting_coords[1] + 20 + y_off)
+							(
+								coords[0] - radius, 
+								coords[1] - radius
+							),
+							(
+								coords[0] + 2 * radius,
+								coords[1] + 2 * radius
+							)
 						],
 						color
 					)
@@ -161,76 +93,142 @@ class BoardRenderer:
 		# draws the roads
 		for road in board.roads:
 			
-			road.point_one
-			road.point_two
-			
 			# gets the coordinates
 			coords = []
+
 			for i in [road.point_one, road.point_two]:
 				
-				place = [0, 0]
-				
-				# Gets the x coordinate
-				place[0] = size[0] / 2 - 3 * half_width
-				
-				# moves over for each point
-				place[0] +=  i[1] * half_width
-				
-				# moves back for each row
-				if i[0] < 3:
-					place[0] -= i[0] * half_width
-				else:
-					place[0] -= (5 - i[0]) * half_width
-				
-				# gets the y coordinate
-				place[1] = size[1] / 2 - 2 * rad - 1.5 * line_length
-				
-				# moves up if the point is higher up
-				if i[0] < 3:
-					
-					if i[1] % 2 == 1:
-						place[1] -= rad - line_length / 2
-						
-				else:
-					if i[1] % 2 == 0:
-						place[1] -= rad - line_length / 2
-						
-				# moves the poin down for each row
-				place[1] += i[0] * (2 * rad - line_length / 2)
+				place = self.get_point_coords(i[0], i[1])
 						
 				# adds the coord
 				coords.append(place)
 				
-			for x in coords:
+			points = []
+
+			for i in range(len(coords)):
+
+				points.append((
+					coords[i][0] - 5 + 10 * i,
+					coords[i][1] - 5 + 10 * i
+				))
+				points.append((
+					coords[i][0] + 5 - 10 * i,
+					coords[i][1] + 5 - 10 * i
+				))
 				
-				draw.polygon(
-					[
-						(
-							coords[0][0] + 5,
-							coords[0][1] + 5
-						),
-						(
-							coords[0][0] - 5,
-							coords[0][1] - 5
-						),
-						(
-							coords[1][0] - 5,
-							coords[1][1] - 5
-						),
-						(
-							coords[1][0] + 5,
-							coords[1][1] + 5
-						)
-					],
-					fill=player_colors[road.owner]
-				)
-				
-		# draws the robber
+			# draws the road
+			draw.polygon(
+				points,
+				fill=player_colors[road.owner]
+			)
+
+		# draws the harbors
+		for h in board.harbors:
+
+			# gets the pixel locations for each point
+			point_one = self.get_point_coords(h.point_one[0], h.point_one[1])
+			point_two = self.get_point_coords(h.point_two[0], h.point_two[1])
+
+			# gets the average x and y between the harbor's two points
+			x = abs(point_one[0] + point_two[0]) / 2
+			y = abs(point_one[1] + point_two[1]) / 2
+
+			# gets a new ImageFont Object
+			font = ImageFont.truetype("DroidSans.ttf", 20)
+
+			# moves the text away from the center of the board
+			# this part is pretty complicated
+
+			# gets the distance to the center of the board
+			to_center = math.sqrt(math.pow(size[0] / 2 - x, 2) + math.pow(size[1] / 2 - y, 2))
+
+			# gets the angle
+			theta = math.asin((size[1] / 2 - y) / to_center)
+
+			# moves away from center by adding to to_center and then recalculating the x and y
+			to_center += 20
+
+			y = size[1] / 2 + to_center * math.sin(theta)
+			x = size[0] / 2 + to_center * math.cos(theta) * abs(size[0] / 2 - x) / (size[0] / 2 - x)
+
+			# centers the text coords on the line
+			text_size = font.getsize(h.get_type())
+			x -= text_size[0] / 2
+			y -= text_size[1] / 2
+
+			self.draw_bordered_text(
+				text=h.get_type(),
+				coord=(x, y),
+				w=1,
+				font=font,
+				draw=draw
+			)
 			
+
+		# draws the robber
 					
 		
 		image.save("test.jpg")
 	
+	'''
+	Gets the pixel coordinates for a specific point
+	
+	r: The row of the point
+	i: The index of the point
+	'''
+	def get_point_coords(self, r, i):
+			
+		size = (800, 800)
+		rad = size[0] / 10
+		
+		# this is half the width of a hex
+		half_width = math.sqrt(math.pow(rad, 2) - math.pow(rad * math.sin(math.pi / 6), 2))
+		
+		# this is the length of a line on the hex
+		line_length = 2 * rad * math.sin(math.pi / 6)
+		# creates array
+		place = [0, 0]
+		
+		# Gets the x coordinate
+		# starting at the middle of the board
+		# and then moves over 1.5 hexes
+		# so now its on the top-left point (0, 0)
+		place[0] = size[0] / 2 - 3 * half_width
+		
+		# moves over half a hex for each point inbetween
+		place[0] +=  i * half_width
+		
+		# Since the lower rows are shifted a bit to the left 
+		# (or right, in the bottom half) we shift the coord 
+		# over too
+		if r < 3:
+
+			# moves it half a hex left for each index
+			place[0] -= r * half_width
+
+		else:
+			# moves it half a hex right for each index
+			# since r > 2, it will be at most 2 half hexes
+			place[0] -= (5 - r) * half_width
+		
+		# gets the y coordinate
+		place[1] = size[1] / 2 - 2 * rad - 1.5 * line_length
+		
+		# moves up if the point is higher up
+		if r < 3:
+			
+			if i % 2 == 1:
+				place[1] -= rad - line_length / 2
+				
+		else:
+			if i % 2 == 0:
+				place[1] -= rad - line_length / 2
+				
+		# moves the poin down for each row
+		place[1] += r * (2 * rad - line_length / 2)
+
+		return place
+
 	'''
 	Draws text at the coords given with a black border
 	
@@ -263,41 +261,90 @@ class BoardRenderer:
 		
 		
 	'''
-	Draws a hex at the center specified
+	Draws a hex from the radius and index given
 	
 	draw: The PIL.ImageDraw.ImageDraw object to draw on
-	center: A tuple with the x, y coordinates (x, y)
-	radius: The distance from the center to one of its points
+	font: The ImageFont Object for the hex number
+	r: The row
+	i: The index
+	board: The CatanBoard Object
+	hex_num: The number on this hex
 	color: The color to fill the hex
 	'''
-	def draw_hex(self, draw, center, radius, color):
+	def draw_hex(self, draw, font, r, i, hex_num, board, color):
 	
 		points = []
-		
-		deg = math.pi / 6
-	
-		# cycles through 6 times
-		for i in range(6):
-		
-			# gets the x and y by forming a right angle triangle with the center and the points
-			y = radius * math.sin(- deg + 2 * deg * i)
+
+		# adds the top points
+		for x in range(3):
+			if r < 3:
+				
+				coords = self.get_point_coords(r, 2 * i + x)
+
+			else:
+
+				coords = self.get_point_coords(r, 2 * i + x + 1)
+
+			points.append((coords[0], coords[1]))
+
+		# adds the bottom coords
+		for x in range(2, -1, -1):
+
+			if r < 2:
+				coords = self.get_point_coords(r + 1, 2 * i + x + 1)
+
+			else:
+				coords = self.get_point_coords(r + 1, 2 * i + x)
+
+			points.append((coords[0], coords[1]))
 			
-			x = math.sqrt(math.pow(radius, 2) - math.pow(y, 2))
-			
-			if i > 2:
-				x *= -1
-			
-			points.append((center[0] + x, center[1] + y))
-			
-		
+		# draws the hex
 		draw.polygon(points, color, (0, 0, 0))
+
+
+		# draws the number toekn
+		num = ""
+		if hex_num != None:
+			num = "{}".format(hex_num)
+
+		text_size = font.getsize(num)
 		
+		# draws the number token
+		self.draw_bordered_text(
+			num, 
+			(
+				(points[0][0] + points[2][0] - text_size[0]) / 2,
+				(points[1][1] + points[4][1] - text_size[1]) / 2
+			),
+			3,
+			font,
+			draw
+			)
+
+		# draws the robber
+		if board.robber[0] == r and board.robber[1] == i:
+			radius = 10
+			x = (points[0][0] + points[2][0]) / 2
+			y = (points[1][1] + 2 * points[4][1]) / 3
+			draw.ellipse(
+				[
+					(
+						x - radius,
+						y - radius
+					),
+					(
+						x + 2 * radius,
+						y + 2 * radius
+					)
+				],
+				(0, 0, 0, 200)
+			)
 	
 if __name__ == "__main__":
-	import PyCatan
+	from PyCatan import CatanGame, CatanCards
 	
 	b = BoardRenderer();
-	c = PyCatan.CatanGame();
+	c = CatanGame();
 	
 	c.add_settlement(player=0, r=0, i=0, is_starting=True)
 	c.add_road(player=0, start=[0,0], end=[0, 1], is_starting=True)
@@ -305,6 +352,14 @@ if __name__ == "__main__":
 	c.add_settlement(player=2, r=0, i=5, is_starting=True)
 	c.add_road(player=2, start=[0,5], end=[0, 4], is_starting=True)
 	c.add_settlement(player=2, r=3, i=5, is_starting=True)
+	c.players[2].add_cards([
+		CatanCards.CARD_WHEAT,
+		CatanCards.CARD_WHEAT,
+		CatanCards.CARD_ORE,
+		CatanCards.CARD_ORE,
+		CatanCards.CARD_ORE,
+	])
+	c.add_city(player=2, r=3, i=5)
 	c.add_road(player=2, start=[3,5], end=[3, 6], is_starting=True)
 	c.add_settlement(player=2, r=4, i=1, is_starting=True)
 	c.add_road(player=2, start=[4,1], end=[5, 0], is_starting=True)
